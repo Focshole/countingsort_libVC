@@ -1,8 +1,9 @@
 #!/bin/bash
 
 rm -rf libVC
-git clone https://github.com/skeru/libVersioningCompiler.git libVC &&
+git clone https://github.com/Focshole/libVersioningCompiler.git libVC &&
 cd libVC &&
+git checkout dev &&
 mkdir build &&
 cd build &&
 cmake -DCMAKE_INSTALL_PREFIX="." .. &&

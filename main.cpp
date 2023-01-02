@@ -65,7 +65,7 @@ vc::version_ptr_t dynamicCompile(int32_t min, int32_t max) {
   const std::string functionName = "vc_sort";
   const vc::opt_list_t opt_list = {
     vc::make_option("-O3"),
-    vc::make_option("-std=c++11"),
+    vc::make_option("-std=c++17"),
     vc::make_option("-I" + kernel_dir),
     vc::make_option("-D_MIN_VALUE_RANGE=" + std::to_string(min)),
     vc::make_option("-D_MAX_VALUE_RANGE=" + std::to_string(max)),

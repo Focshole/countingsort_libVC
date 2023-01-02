@@ -1,5 +1,10 @@
-cmake_minimum_required( VERSION 3.0.2 )
-
+cmake_minimum_required( VERSION 3.20 )
+project(
+  libVC_countsort
+  VERSION 2.0
+  DESCRIPTION
+    "Counting sort test for libvc"
+  LANGUAGES CXX C)
 # target
 set ( EXE_NAME "run_countsort" )
 
@@ -7,7 +12,7 @@ set ( EXE_NAME "run_countsort" )
 list ( APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" )
 
 find_package ( LibVersioningCompiler REQUIRED )
-include_directories ( ${LIBVC_INCLUDES} )
+include_directories ( ${LIBVC_INCLUDE_DIRS} )
 link_directories( ${LIVC_LIB_DIR} )
 
 # finalize dependencies
@@ -21,11 +26,18 @@ set ( SRC_CNTSRT ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
                 )
 
 # compiler options
-set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
-set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3" )
-set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto" )
-set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_PATH_TO_KERNEL=\"\\\"${CMAKE_CURRENT_SOURCE_DIR}/\\\"\"" )
+if(NOT CMAKE_BUILD_TYPE)
+  message("No build type detected. Build type set to Release by default")
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
 
+set_source_files_properties( ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp PROPERTIES COMPILE_FLAGS
+"-D_PATH_TO_KERNEL=\"\\\"${CMAKE_CURRENT_SOURCE_DIR}/\\\"\"")
 # finalize target
 add_executable( ${EXE_NAME} ${SRC_CNTSRT} )
 target_link_libraries( ${EXE_NAME} ${DEP_LIBS} )
