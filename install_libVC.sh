@@ -3,10 +3,10 @@
 rm -rf libVC
 git clone https://github.com/Focshole/libVersioningCompiler.git libVC &&
 cd libVC &&
-git checkout dev &&
+git checkout libtool-dev &&
 mkdir build &&
 cd build &&
-cmake -DCMAKE_INSTALL_PREFIX="." .. &&
+cmake -DUSE_LIBTOOL=1 -DCMAKE_INSTALL_PREFIX="." .. &&
 make -j4 &&
 make install &&
 mkdir -p ../../cmake &&
