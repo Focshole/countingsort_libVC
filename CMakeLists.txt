@@ -15,9 +15,16 @@ find_package ( LibVersioningCompiler REQUIRED )
 include_directories ( ${LIBVC_INCLUDE_DIRS} )
 link_directories( ${LIVC_LIB_DIR} )
 
-# finalize dependencies
-set ( DEP_LIBS ${DEP_LIBS} ${LIBVC_LIBRARIES} )
+find_package ( LibVersioningCompilerProd REQUIRED )
+include_directories ( ${LibVersioningCompilerProd_INCLUDE_DIRS} )
+link_directories( ${LibVersioningCompilerProd_LIB_DIR} )
+#find_package ( Libvc_dht_cons REQUIRED )
+#include_directories ( ${LIBVC_DHT_CONS_INCLUDE_DIRS} )
+#link_directories( ${LIVC_DHT_CONS_LIB_DIR} )
 
+# finalize dependencies
+set ( DEP_LIBS ${DEP_LIBS} ${LIBVC_LIBRARIES} ${LibVersioningCompilerProd_LIBRARIES} ${LibVersioningCompilerCons_LIBRARIES})
+list(REMOVE_DUPLICATES DEP_LIBS)
 # sources
 set ( SRC_CNTSRT ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/kernel.cpp
