@@ -3,3 +3,6 @@ cmake/FindLibVersioningCompiler.cmake
 libVC/*.yml
 libVersioningCompilerProd/*.yml
 libVersioningCompilerCons/*.yml
+cmake/FindLibVersioningCompilerProd.cmake
+cmake/FindLibVersioningCompilerProd.cmake
+cmake/Findlibzmq.cmake
