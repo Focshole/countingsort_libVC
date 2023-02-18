@@ -16,10 +16,8 @@ cd ../../ &&
 rm -rf libVersioningCompilerProd &&
 git clone https://github.com/Focshole/libvc-dht-producer libVersioningCompilerProd &&
 cd libVersioningCompilerProd &&
-# add libVC
-ln -s ../libVC libVC  &&
 # add libVC cmake file
-cp ./libVC/build/lib/cmake/FindLibVersioningCompiler.cmake ./cmake/ &&
+cp ../libVC/build/lib/cmake/FindLibVersioningCompiler.cmake ./cmake/ &&
 # Build libVC-dht-prod
 mkdir build &&
 cd build &&
@@ -31,10 +29,8 @@ cd ../../ &&
 rm -rf libVersioningCompilerCons &&
 git clone https://github.com/Focshole/libvc-dht-consumer libVersioningCompilerCons &&
 cd libVersioningCompilerCons &&
-# add libVC
-ln -s ../libVC libVC  &&
 # add libVC cmake file
-cp ./libVC/build/lib/cmake/FindLibVersioningCompiler.cmake ./cmake/ &&
+cp ../libVC/build/lib/cmake/FindLibVersioningCompiler.cmake ./cmake/ &&
 # Build libVC-dht-cons
 mkdir build &&
 cd build &&
@@ -46,6 +42,6 @@ cd ../../ &&
 mkdir -p cmake &&
 cp libVC/build/lib/cmake/FindLibVersioningCompiler.cmake ./cmake/ &&
 cp libVersioningCompilerProd/build/lib/cmake/FindLibVersioningCompilerProd.cmake cmake/ &&
-cp libVersioningCompilerProd/cmake/Findlibzmq.cmake cmake/ &&
-cp libVersioningCompilerProd/build/lib/cmake/FindLibVersioningCompilerCons.cmake cmake/
+cp libVersioningCompilerProd/cmake/Findlibzmq.cmake cmake/ && # It is enough to use the one from libVC-dht-prod
+cp libVersioningCompilerCons/build/lib/cmake/FindLibVersioningCompilerCons.cmake cmake/
 

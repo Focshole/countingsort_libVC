@@ -27,8 +27,8 @@ make && make install || { echo "Failed to build libVCCons" && exit 2; } &&
 cd ../.. &&
 
 cp libVC/build/lib/cmake/FindLibVersioningCompiler.cmake cmake/ &&
-cp libVersioningCompilerProd/build/lib/cmake/FindLibVersioningCompilerProd.cmake cmake/
-cp libVersioningCompilerProd/build/lib/cmake/FindLibVersioningCompilerCons.cmake cmake/
+cp libVersioningCompilerProd/build/lib/cmake/FindLibVersioningCompilerProd.cmake cmake/ &&
+cp libVersioningCompilerCons/build/lib/cmake/FindLibVersioningCompilerCons.cmake cmake/ &&
 cp libVersioningCompilerProd/cmake/Findlibzmq.cmake cmake/ &&
 
 cd build/ &&

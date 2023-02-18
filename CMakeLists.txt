@@ -18,9 +18,9 @@ link_directories( ${LIVC_LIB_DIR} )
 find_package ( LibVersioningCompilerProd REQUIRED )
 include_directories ( ${LibVersioningCompilerProd_INCLUDE_DIRS} )
 link_directories( ${LibVersioningCompilerProd_LIB_DIR} )
-#find_package ( Libvc_dht_cons REQUIRED )
-#include_directories ( ${LIBVC_DHT_CONS_INCLUDE_DIRS} )
-#link_directories( ${LIVC_DHT_CONS_LIB_DIR} )
+find_package ( LibVersioningCompilerCons REQUIRED )
+include_directories ( ${LibVersioningCompilerCons_INCLUDE_DIRS} )
+link_directories( ${LibVersioningCompilerCons_LIB_DIR} )
 
 # finalize dependencies
 set ( DEP_LIBS ${DEP_LIBS} ${LIBVC_LIBRARIES} ${LibVersioningCompilerProd_LIBRARIES} ${LibVersioningCompilerCons_LIBRARIES})
