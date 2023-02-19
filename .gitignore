@@ -4,5 +4,6 @@ libVC/*.yml
 libVersioningCompilerProd/*.yml
 libVersioningCompilerCons/*.yml
 cmake/FindLibVersioningCompilerProd.cmake
-cmake/FindLibVersioningCompilerProd.cmake
+cmake/FindLibVersioningCompilerCons.cmake
 cmake/Findlibzmq.cmake
+.vscode/

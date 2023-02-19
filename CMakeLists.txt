@@ -1,36 +1,36 @@
-cmake_minimum_required( VERSION 3.20 )
+cmake_minimum_required(VERSION 3.20)
 project(
   libVC_countsort
   VERSION 2.0
-  DESCRIPTION
-    "Counting sort test for libvc"
+  DESCRIPTION "Counting sort test for libvc"
   LANGUAGES CXX C)
 # target
-set ( EXE_NAME "run_countsort" )
+set(EXE_NAME "run_countsort")
 
 # look for dependencies
-list ( APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" )
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-find_package ( LibVersioningCompiler REQUIRED )
-include_directories ( ${LIBVC_INCLUDE_DIRS} )
-link_directories( ${LIVC_LIB_DIR} )
+find_package(LibVersioningCompiler REQUIRED)
+include_directories(${LIBVC_INCLUDE_DIRS})
+link_directories(${LIBVC_LIB_DIR})
 
-find_package ( LibVersioningCompilerProd REQUIRED )
-include_directories ( ${LibVersioningCompilerProd_INCLUDE_DIRS} )
-link_directories( ${LibVersioningCompilerProd_LIB_DIR} )
-find_package ( LibVersioningCompilerCons REQUIRED )
-include_directories ( ${LibVersioningCompilerCons_INCLUDE_DIRS} )
-link_directories( ${LibVersioningCompilerCons_LIB_DIR} )
+find_package(LibVersioningCompilerProd REQUIRED)
+include_directories(${LibVersioningCompilerProd_INCLUDE_DIRS})
+link_directories(${LibVersioningCompilerProd_LIBRARY_DIR})
+find_package(LibVersioningCompilerCons REQUIRED)
+include_directories(${LibVersioningCompilerCons_INCLUDE_DIRS})
+link_directories(${LibVersioningCompilerCons_LIBRARY_DIR})
 
 # finalize dependencies
-set ( DEP_LIBS ${DEP_LIBS} ${LIBVC_LIBRARIES} ${LibVersioningCompilerProd_LIBRARIES} ${LibVersioningCompilerCons_LIBRARIES})
+set(DEP_LIBS
+    ${DEP_LIBS} ${LIBVC_LIBRARIES} ${LibVersioningCompilerProd_LIBRARIES}
+    ${LibVersioningCompilerCons_LIBRARIES} "-l:libVersioningCompiler.a")
 list(REMOVE_DUPLICATES DEP_LIBS)
 # sources
-set ( SRC_CNTSRT ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/kernel.cpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/TimeMonitor.cpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
-                )
+set(SRC_CNTSRT
+    ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/kernel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/TimeMonitor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp)
 
 # compiler options
 if(NOT CMAKE_BUILD_TYPE)
@@ -43,15 +43,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
 
-set_source_files_properties( ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp PROPERTIES COMPILE_FLAGS
-"-D_PATH_TO_KERNEL=\"\\\"${CMAKE_CURRENT_SOURCE_DIR}/\\\"\"")
+set_source_files_properties(
+  ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
+  PROPERTIES COMPILE_FLAGS
+             "-D_PATH_TO_KERNEL=\"\\\"${CMAKE_CURRENT_SOURCE_DIR}/\\\"\"")
 # finalize target
-add_executable( ${EXE_NAME} ${SRC_CNTSRT} )
-target_link_libraries( ${EXE_NAME} ${DEP_LIBS} )
+add_executable(${EXE_NAME} ${SRC_CNTSRT})
+target_link_libraries(${EXE_NAME} ${DEP_LIBS})
 
 # install path
-if ( CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT )
-  set (CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR})
-endif ()
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR})
+endif()
 
-install ( TARGETS ${EXE_NAME} DESTINATION bin )
+install(TARGETS ${EXE_NAME} DESTINATION bin)
