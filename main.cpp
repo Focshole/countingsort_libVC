@@ -11,6 +11,7 @@
 #include <sched.h>
 #include <map>
 #include <thread>
+#include <string>
 #include <mutex>
 
 #ifndef _PATH_TO_KERNEL
@@ -107,11 +108,10 @@ vc::version_ptr_t getDynamicVersion(const int32_t min, const int32_t max)
 }
 
 // this is the producer code that will generate the version and serve it to the consumer
-void producerThread(const int32_t min, const int32_t max, std::filesystem::path &generatedBinPath)
+std::mutex producer_ready_mutex;
+void producerThread(const int32_t min, const int32_t max, std::filesystem::path &generatedBinPath, std::shared_ptr<dht::DhtRunner> &prodNode)
 {
-  dht_prod::params bootstrapProdParams = {dht::crypto::generateIdentity(), "tcp://127.0.0.1:4224", 4242};
-  auto prodNode = dht_prod::bootstrapDHTNode(bootstrapProdParams);
-  prodNode->loop();
+  producer_ready_mutex.unlock();
   std::cout << "TODO Bootstrapped producer" << std::endl;
   const std::string kernel_dir = PATH_TO_KERNEL;
   const std::string kernel_file = kernel_dir + "kernel.cpp";
@@ -127,8 +127,8 @@ void producerThread(const int32_t min, const int32_t max, std::filesystem::path 
   generatedBinPath = dht_prod::generateVersion(kernel_file, functionName, opt_list);
   prodNode->put(dhtKey, "tcp://127.0.0.1:4554");
   std::cout << "TODO Producer placed put on network" << std::endl;
-  if ( dht_prod::serveVersion(kernel_file, "tcp://*:4554") != 0)
-    generatedBinPath="";
+  if (dht_prod::serveVersion(kernel_file, "tcp://*:4554") != 0)
+    generatedBinPath = "";
 
   prodNode->join();
 }
@@ -156,16 +156,9 @@ bool dhtCallbackConsumer(const std::vector<std::shared_ptr<dht::Value>> &values)
   return true;
 }
 // this is the consumer code that will fetch the version from the producer
-void consumerThread(const int32_t min, const int32_t max)
+void consumerThread(const int32_t min, const int32_t max, std::shared_ptr<dht::DhtRunner> &consNode)
 {
-
-  sleep(10);
-  // initialize libvc DHT clients
-  dht_cons::params bootstrapConsParams = {dht::crypto::generateIdentity(), "tcp://127.0.0.1:4242", 4224};
-  auto consNode = dht_cons::bootstrapDHTNode(bootstrapConsParams);
-
   std::cout << "TODO Bootstrapped consumer" << std::endl;
-  consNode->loop();
   // generate the version
   const std::string functionName = "vc_sort";
   std::string dhtKey = functionName + "_" + std::to_string(min) + "_" + std::to_string(max);
@@ -175,18 +168,18 @@ void consumerThread(const int32_t min, const int32_t max)
   while (!callback_mutex.try_lock())
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    consNode->loop();
   }
   callback_mutex.lock();
   callback_mutex.unlock();
 
   consNode->join();
 }
-vc::version_ptr_t dynamicDHTCompile(int32_t min, int32_t max)
+vc::version_ptr_t dynamicDHTCompile(int32_t min, int32_t max, std::shared_ptr<dht::DhtRunner> &prodNode, std::shared_ptr<dht::DhtRunner> &consNode)
 {
   std::filesystem::path generatedBinPath;
-  std::thread t1(producerThread, min, max, std::ref(generatedBinPath));
-  std::thread t2(consumerThread, min, max);
+  producer_ready_mutex.lock();
+  std::thread t1(producerThread, min, max, std::ref(generatedBinPath), std::ref(prodNode));
+  std::thread t2(consumerThread, min, max, std::ref(consNode));
   t1.join();
   t2.join();
   fetchedVersion_mutex.lock();
@@ -204,7 +197,7 @@ vc::version_ptr_t dynamicDHTCompile(int32_t min, int32_t max)
   return nullptr;
 }
 // lookup in previously compiled versions
-vc::version_ptr_t getDHTVersion(const int32_t min, const int32_t max)
+vc::version_ptr_t getDHTVersion(const int32_t min, const int32_t max, std::shared_ptr<dht::DhtRunner> &prodNode, std::shared_ptr<dht::DhtRunner> &consNode)
 {
   std::pair<int32_t, int32_t> key = std::make_pair(min, max);
   auto elem = memoDHT.find(key);
@@ -214,7 +207,7 @@ vc::version_ptr_t getDHTVersion(const int32_t min, const int32_t max)
     return elem->second;
   }
   std::cout << "dynamicDHTCompile begin" << std::endl;
-  auto v = dynamicDHTCompile(min, max);
+  auto v = dynamicDHTCompile(min, max, prodNode, consNode);
   std::cout << "dynamicDHTCompile end" << std::endl;
   if (v != nullptr)
   {
@@ -232,9 +225,13 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
   TimeMonitor time_monitor_dht;
   TimeMonitor time_monitor_dht_ovh;
 
+  // initialize libvc DHT clients
+  auto consNode = dht_cons::bootstrapDHTNode({dht::crypto::generateIdentity("consNode"), std::string(""), 4224});
+  sleep(3);
+  auto prodNode = dht_prod::bootstrapDHTNode({dht::crypto::generateIdentity("prodNode"), std::string("tcp://127.0.0.1:4224"), 4242});
   // produce DHT version
   time_monitor_dht_ovh.start();
-  auto v_dht = getDHTVersion(range.first, range.second);
+  auto v_dht = getDHTVersion(range.first, range.second, prodNode, consNode);
   kernel_t dynamic_dht_sort = (kernel_t)v_dht->getSymbol(0);
   time_monitor_dht_ovh.stop();
 
