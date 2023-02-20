@@ -108,15 +108,12 @@ vc::version_ptr_t getDynamicVersion(const int32_t min, const int32_t max)
 }
 
 // this is the producer code that will generate the version and serve it to the consumer
-std::mutex producer_ready_mutex;
 void producerThread(const int32_t min, const int32_t max, std::filesystem::path &generatedBinPath, std::shared_ptr<dht::DhtRunner> &prodNode)
 {
-  producer_ready_mutex.unlock();
-  std::cout << "TODO Bootstrapped producer" << std::endl;
   const std::string kernel_dir = PATH_TO_KERNEL;
   const std::string kernel_file = kernel_dir + "kernel.cpp";
   const std::string functionName = "vc_sort";
-  std::string dhtKey = functionName + "_" + std::to_string(min) + "_" + std::to_string(max);
+  std::string dhtKey = functionName + std::to_string(min) + std::to_string(max);
   vc::opt_list_t opt_list = {
       vc::make_option("-O3"),
       vc::make_option("-std=c++17"),
@@ -125,12 +122,12 @@ void producerThread(const int32_t min, const int32_t max, std::filesystem::path 
       vc::make_option("-D_MAX_VALUE_RANGE=" + std::to_string(max)),
       vc::make_option("-fPIC")};
   generatedBinPath = dht_prod::generateVersion(kernel_file, functionName, opt_list);
-  prodNode->put(dhtKey, "tcp://127.0.0.1:4554");
-  std::cout << "TODO Producer placed put on network" << std::endl;
-  if (dht_prod::serveVersion(kernel_file, "tcp://*:4554") != 0)
+  prodNode->put(dhtKey, "tcp://127.0.0.1:4554", [](bool ok)
+                {
+    if (!ok)
+      std::cerr << "Put failed. Did the DHT network setup work?" << std::endl; });
+  if (dht_prod::serveVersion(generatedBinPath, "tcp://*:4554") != 0)
     generatedBinPath = "";
-
-  prodNode->join();
 }
 
 // Those are required to synchronize the consumer callback with the consumer thread
@@ -141,59 +138,50 @@ vc::version_ptr_t fetchedVersion = nullptr;
 // this is the code that be called once the dht entry had been generated
 bool dhtCallbackConsumer(const std::vector<std::shared_ptr<dht::Value>> &values)
 {
-  std::cout << "TODO DHT callback called" << std::endl;
   if (values.empty() || values.size() > 1)
   {
     std::cerr << "Bad value placed on DHT, exiting"
               << std::endl;
-    return false;
+    return false; // stop the callback
   }
   auto socket = std::string(values[0]->data.begin() + 1, values[0]->data.end());
   fetchedVersion_mutex.lock();
+
   fetchedVersion = dht_cons::downloadVersion(socket, {"vc_sort"}, "dht_tmp.so");
+
   fetchedVersion_mutex.unlock();
   callback_mutex.unlock();
-  return true;
+  return false; // value found, stop the callback
 }
 // this is the consumer code that will fetch the version from the producer
 void consumerThread(const int32_t min, const int32_t max, std::shared_ptr<dht::DhtRunner> &consNode)
 {
-  std::cout << "TODO Bootstrapped consumer" << std::endl;
   // generate the version
   const std::string functionName = "vc_sort";
-  std::string dhtKey = functionName + "_" + std::to_string(min) + "_" + std::to_string(max);
+  std::string dhtKey = functionName + std::to_string(min) + std::to_string(max);
   callback_mutex.lock();
-  consNode->get(dhtKey, dhtCallbackConsumer);
-  std::cout << "TODO placed get" << std::endl;
-  while (!callback_mutex.try_lock())
-  {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-  callback_mutex.lock();
+  consNode->listen(dhtKey, dhtCallbackConsumer);
+  callback_mutex.lock(); // wait for the callback to be called
   callback_mutex.unlock();
-
-  consNode->join();
 }
 vc::version_ptr_t dynamicDHTCompile(int32_t min, int32_t max, std::shared_ptr<dht::DhtRunner> &prodNode, std::shared_ptr<dht::DhtRunner> &consNode)
 {
   std::filesystem::path generatedBinPath;
-  producer_ready_mutex.lock();
   std::thread t1(producerThread, min, max, std::ref(generatedBinPath), std::ref(prodNode));
-  std::thread t2(consumerThread, min, max, std::ref(consNode));
+  consumerThread(min, max, std::ref(consNode));
   t1.join();
-  t2.join();
-  fetchedVersion_mutex.lock();
-  auto tmp_version = fetchedVersion;
-  fetchedVersion_mutex.unlock();
-  if (tmp_version == nullptr)
+  // no need to use mutexes again
+  if (fetchedVersion == nullptr)
   {
+    std::cerr << "dynamicDHTCompile compilation failed, returned null" << std::endl;
     return nullptr;
   }
-  kernel_t f = (kernel_t)vc::compileAndGetSymbol(tmp_version);
+  kernel_t f = (kernel_t)vc::compileAndGetSymbol(fetchedVersion);
   if (f)
   {
-    return tmp_version;
+    return fetchedVersion;
   }
+  std::cerr << "dynamicDHTCompile get symbol failed" << std::endl;
   return nullptr;
 }
 // lookup in previously compiled versions
@@ -206,9 +194,7 @@ vc::version_ptr_t getDHTVersion(const int32_t min, const int32_t max, std::share
     elem->second->compile();
     return elem->second;
   }
-  std::cout << "dynamicDHTCompile begin" << std::endl;
   auto v = dynamicDHTCompile(min, max, prodNode, consNode);
-  std::cout << "dynamicDHTCompile end" << std::endl;
   if (v != nullptr)
   {
     memoDHT[key] = v;
@@ -224,28 +210,6 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
   TimeMonitor time_monitor_dyn_ovh;
   TimeMonitor time_monitor_dht;
   TimeMonitor time_monitor_dht_ovh;
-
-  // initialize libvc DHT clients
-  auto consNode = dht_cons::bootstrapDHTNode({dht::crypto::generateIdentity("consNode"), std::string(""), 4224});
-  sleep(3);
-  auto prodNode = dht_prod::bootstrapDHTNode({dht::crypto::generateIdentity("prodNode"), std::string("tcp://127.0.0.1:4224"), 4242});
-  // produce DHT version
-  time_monitor_dht_ovh.start();
-  auto v_dht = getDHTVersion(range.first, range.second, prodNode, consNode);
-  kernel_t dynamic_dht_sort = (kernel_t)v_dht->getSymbol(0);
-  time_monitor_dht_ovh.stop();
-
-  // running dynamic version - dynamically compiled
-  for (size_t i = 0; i < iterations; i++)
-  {
-    auto wl = WorkloadProducer<int32_t>::get_WL_with_bounds_size(range.first,
-                                                                 range.second,
-                                                                 data_size,
-                                                                 seed + i);
-    time_monitor_dht.start();
-    dynamic_dht_sort(wl.data);
-    time_monitor_dht.stop();
-  }
 
   // running reference version - statically linked to main program
   for (size_t i = 0; i < iterations; i++)
@@ -285,7 +249,29 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
   }
 
   v->fold();
+  // initialize libvc DHT clients
+  auto prodNode = dht_prod::bootstrapDHTNode({dht::crypto::generateIdentity("prodNode"), std::string(""), 4242});
+  auto consNode = dht_cons::bootstrapDHTNode({dht::crypto::generateIdentity("consNode"), std::string("tcp://127.0.0.1:4242"), 4224});
+  prodNode->bootstrap("127.0.0.1", "4224");
+  // produce DHT version
+  time_monitor_dht_ovh.start();
+  auto v_dht = getDHTVersion(range.first, range.second, prodNode, consNode);
+  kernel_t dynamic_dht_sort = (kernel_t)v_dht->getSymbol(0);
+  time_monitor_dht_ovh.stop();
 
+  // running dynamic version - dynamically compiled
+  for (size_t i = 0; i < iterations; i++)
+  {
+    auto wl = WorkloadProducer<int32_t>::get_WL_with_bounds_size(range.first,
+                                                                 range.second,
+                                                                 data_size,
+                                                                 seed + i);
+    time_monitor_dht.start();
+    dynamic_dht_sort(wl.data);
+    time_monitor_dht.stop();
+  }
+  v_dht->fold();
+  std::filesystem::remove("dht_tmp.so");
   std::cout << "range width"
             << "\t"
             << "workload size"
