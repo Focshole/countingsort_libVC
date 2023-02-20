@@ -121,7 +121,15 @@ void producerThread(const int32_t min, const int32_t max, std::filesystem::path 
       vc::make_option("-D_MIN_VALUE_RANGE=" + std::to_string(min)),
       vc::make_option("-D_MAX_VALUE_RANGE=" + std::to_string(max)),
       vc::make_option("-fPIC")};
-  generatedBinPath = dht_prod::generateVersion(kernel_file, functionName, opt_list);
+  auto v = vc::createVersion(kernel_file, functionName, opt_list);
+  auto ok = v->compile();
+  if (!ok)
+  {
+    std::cerr << "Compilation failed" << std::endl;
+    generatedBinPath = "";
+    return;
+  }
+  generatedBinPath = v->getFileName_bin();
   prodNode->put(dhtKey, "tcp://127.0.0.1:4554", [](bool ok)
                 {
     if (!ok)
@@ -210,8 +218,9 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
   TimeMonitor time_monitor_dyn_ovh;
   TimeMonitor time_monitor_dht;
   TimeMonitor time_monitor_dht_ovh;
-
+  std::cout << "Starting test with data size: " << data_size << ", iterations: " << iterations << ", range: " << range.first << " - " << range.second << std::endl;
   // running reference version - statically linked to main program
+  std::cout << "Running reference version..." << std::endl;
   for (size_t i = 0; i < iterations; i++)
   {
     auto wl = WorkloadProducer<int32_t>::get_WL_with_bounds_size(range.first,
@@ -223,7 +232,9 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
     sort(wl.data, meta.minVal, meta.maxVal);
     time_monitor_ref.stop();
   }
+  std::cout << "Reference version done." << std::endl;
   // Produce dynamic version
+  std::cout << "Running dynamic version..." << std::endl;
   time_monitor_dyn_ovh.start();
   auto v = getDynamicVersion(range.first, range.second);
   kernel_t dynamic_sort = (kernel_t)v->getSymbol(0);
@@ -249,9 +260,11 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
   }
 
   v->fold();
+  std::cout << "Dynamic dht version done." << std::endl;
+  std::cout << "Running dynamic dht version..." << std::endl;
   // initialize libvc DHT clients
-  auto prodNode = dht_prod::bootstrapDHTNode({dht::crypto::generateIdentity("prodNode"), std::string(""), 4242});
-  auto consNode = dht_cons::bootstrapDHTNode({dht::crypto::generateIdentity("consNode"), std::string("tcp://127.0.0.1:4242"), 4224});
+  auto prodNode = dht_prod::bootstrapDHTNode({dht::crypto::generateEcIdentity("prodNode"), std::string(""), 4242});
+  auto consNode = dht_cons::bootstrapDHTNode({dht::crypto::generateEcIdentity("consNode"), std::string("tcp://127.0.0.1:4242"), 4224});
   prodNode->bootstrap("127.0.0.1", "4224");
   // produce DHT version
   time_monitor_dht_ovh.start();
@@ -272,7 +285,10 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
   }
   v_dht->fold();
   std::filesystem::remove("dht_tmp.so");
-  std::cout << "range width"
+  std::cout << "Dynamic dht version done." << std::endl;
+  std::cout << "range"
+            << "\t"
+            << "width"
             << "\t"
             << "workload size"
             << "\t"
@@ -280,9 +296,9 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
   std::cout << range.second << "\t" << data_size << "\t Avg ref     " << time_monitor_ref.getAvg() << " ms" << std::endl;
   std::cout << range.second << "\t" << data_size << "\t Avg dyn     " << time_monitor_dyn.getAvg() << " ms" << std::endl;
   std::cout << range.second << "\t" << data_size << "\t Avg ovh     " << time_monitor_dyn_ovh.getAvg() << " ms" << std::endl;
+  std::cout << range.second << "\t" << data_size << "\t Avg dht     " << time_monitor_dht.getAvg() << " ms" << std::endl;
   std::cout << range.second << "\t" << data_size << "\t Avg dht-ovh " << time_monitor_dht_ovh.getAvg() << " ms" << std::endl;
-  std::cout << range.second << "\t" << data_size << "\t Avg dht     " << time_monitor_dht.getAvg() << " ms" << std::endl
-            << std::endl
-            << std::endl;
+  << std::endl
+  << std::endl;
   return;
 }
