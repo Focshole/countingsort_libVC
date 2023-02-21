@@ -28,7 +28,7 @@ uint32_t seed = 666;
 const size_t MAX_ITERATIONS = 100;
 const float similarity_ratio_recompilation_threshold = 2.0f;
 
-void run_test(size_t data_size, size_t iterations, std::pair<int, int> range);
+void run_test(size_t data_size, size_t iterations, std::pair<int, int> range, std::shared_ptr<dht::DhtRunner> &prodNode, std::shared_ptr<dht::DhtRunner> &consNode);
 
 int main(int argc, char const *argv[])
 {
@@ -51,18 +51,27 @@ int main(int argc, char const *argv[])
   const std::vector<size_t> data_size = {
       10 * 1000 * 1000,
       100 * 1000 * 1000,
-      // 1000*1000*1000, // I don't have a hpc to test it
+      1000 * 1000 * 1000, // I don't have a hpc to test it
   };
   // initialize common libvc utilities
   vc::vc_utils_init();
+  // initialize libvc DHT clients
+  auto prodNode = dht_prod::bootstrapDHTNode({dht::crypto::generateEcIdentity("prodNode"), std::string(""), 4242});
+  auto consNode = dht_cons::bootstrapDHTNode({dht::crypto::generateEcIdentity("consNode"), std::string("tcp://127.0.0.1:4242"), 4224});
+  prodNode->bootstrap("127.0.0.1", "4224");
   for (const size_t s : data_size)
   {
     for (const auto r : data_range)
     {
-      run_test(s, MAX_ITERATIONS, r);
+      run_test(s, MAX_ITERATIONS, r, prodNode, consNode);
     }
   }
-
+  // clean up
+  prodNode->shutdown();
+  consNode->shutdown();
+  prodNode->join();
+  consNode->join();
+  std::filesystem::remove("dht_tmp.so");
   return 0;
 }
 
@@ -210,9 +219,8 @@ vc::version_ptr_t getDHTVersion(const int32_t min, const int32_t max, std::share
   return v;
 }
 
-void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
+void run_test(size_t data_size, size_t iterations, std::pair<int, int> range, std::shared_ptr<dht::DhtRunner> &prodNode, std::shared_ptr<dht::DhtRunner> &consNode)
 {
-
   TimeMonitor time_monitor_ref;
   TimeMonitor time_monitor_dyn;
   TimeMonitor time_monitor_dyn_ovh;
@@ -260,19 +268,15 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
   }
 
   v->fold();
-  std::cout << "Dynamic dht version done." << std::endl;
+  std::cout << "Dynamic version done." << std::endl;
   std::cout << "Running dynamic dht version..." << std::endl;
-  // initialize libvc DHT clients
-  auto prodNode = dht_prod::bootstrapDHTNode({dht::crypto::generateEcIdentity("prodNode"), std::string(""), 4242});
-  auto consNode = dht_cons::bootstrapDHTNode({dht::crypto::generateEcIdentity("consNode"), std::string("tcp://127.0.0.1:4242"), 4224});
-  prodNode->bootstrap("127.0.0.1", "4224");
   // produce DHT version
   time_monitor_dht_ovh.start();
   auto v_dht = getDHTVersion(range.first, range.second, prodNode, consNode);
   kernel_t dynamic_dht_sort = (kernel_t)v_dht->getSymbol(0);
   time_monitor_dht_ovh.stop();
 
-  // running dynamic version - dynamically compiled
+  // running dynamic dht version - dynamically compiled
   for (size_t i = 0; i < iterations; i++)
   {
     auto wl = WorkloadProducer<int32_t>::get_WL_with_bounds_size(range.first,
@@ -283,8 +287,9 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
     dynamic_dht_sort(wl.data);
     time_monitor_dht.stop();
   }
+  // cleanup
   v_dht->fold();
-  std::filesystem::remove("dht_tmp.so");
+  fetchedVersion = nullptr;
   std::cout << "Dynamic dht version done." << std::endl;
   std::cout << "range"
             << "\t"
@@ -297,8 +302,8 @@ void run_test(size_t data_size, size_t iterations, std::pair<int, int> range)
   std::cout << range.second << "\t" << data_size << "\t Avg dyn     " << time_monitor_dyn.getAvg() << " ms" << std::endl;
   std::cout << range.second << "\t" << data_size << "\t Avg ovh     " << time_monitor_dyn_ovh.getAvg() << " ms" << std::endl;
   std::cout << range.second << "\t" << data_size << "\t Avg dht     " << time_monitor_dht.getAvg() << " ms" << std::endl;
-  std::cout << range.second << "\t" << data_size << "\t Avg dht-ovh " << time_monitor_dht_ovh.getAvg() << " ms" << std::endl;
-  << std::endl
-  << std::endl;
+  std::cout << range.second << "\t" << data_size << "\t Avg dht-ovh " << time_monitor_dht_ovh.getAvg() << " ms" << std::endl
+            << std::endl
+            << std::endl;
   return;
 }
