@@ -3,7 +3,7 @@
 rm -rf libVC
 git clone https://github.com/Focshole/libVersioningCompiler.git libVC &&
 cd libVC &&
-git checkout dev &&
+git checkout renovation-work &&
 # Build libVC
 mkdir build &&
 cd build &&

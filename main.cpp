@@ -46,12 +46,13 @@ int main(int argc, char const *argv[])
       std::make_pair<int, int>(0, 4096),
       std::make_pair<int, int>(0, 8192),
       std::make_pair<int, int>(0, 16384),
+      std::make_pair<int, int>(0, 32768),
   };
 
   const std::vector<size_t> data_size = {
       10 * 1000 * 1000,
       100 * 1000 * 1000,
-      1000 * 1000 * 1000, // I don't have a hpc to test it
+      1000 * 1000 * 1000, 
   };
   // initialize common libvc utilities
   vc::vc_utils_init();
@@ -65,6 +66,8 @@ int main(int argc, char const *argv[])
     {
       run_test(s, MAX_ITERATIONS, r, prodNode, consNode);
     }
+    memo.clear();
+    memoDHT.clear();
   }
   // clean up
   prodNode->shutdown();
